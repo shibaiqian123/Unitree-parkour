@@ -29,11 +29,22 @@ G1_with_shoe_CFG.spawn.asset_path = os.path.abspath(
 )
 
 
+from pathlib import Path
+
+# 当前文件位于仓库下 source/instinctlab/instinctlab/tasks/parkour/config/g1/
+_DATASET_DIR = (
+    Path(__file__).resolve().parents[7]
+    / "Datasets"
+    / "data&model"
+    / "parkour_motion_reference"
+)
+
+
 @configclass
 class AmassMotionCfg(AmassMotionCfgBase):
-    path = os.path.expanduser("~/Datasets")
+    path = os.path.expanduser(_DATASET_DIR)
     retargetting_func = None
-    filtered_motion_selection_filepath = os.path.expanduser("~/Datasets/parkour_motion_without_run.yaml")
+    filtered_motion_selection_filepath = str(_DATASET_DIR / "parkour_motion_without_run.yaml")
     motion_start_from_middle_range = [0.0, 0.9]
     motion_start_height_offset = 0.0
     ensure_link_below_zero_ground = False
