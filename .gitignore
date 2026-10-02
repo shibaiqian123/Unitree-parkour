@@ -36,3 +36,11 @@ _isaac_sim*
 _repo
 _build
 .lastformat
+
+
+# macOS archive metadata
+**/__MACOSX/
+**/._*
+
+# Downloaded pretrained models
+/Datasets/data&model/checkpoints/
