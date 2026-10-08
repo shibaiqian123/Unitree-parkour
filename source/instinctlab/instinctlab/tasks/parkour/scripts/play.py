@@ -29,7 +29,12 @@ parser.add_argument("--useonnx", action="store_true", default=False, help="Use t
 parser.add_argument("--debug", action="store_true", default=False, help="Enable debug mode.")
 parser.add_argument("--no_resume", default=None, action="store_true", help="Force play in no resume mode.")
 # custom play arguments
-parser.add_argument("--env_cfg", action="store_true", default=False, help="Load configuration from file.")
+parser.add_argument(
+    "--env_cfg",
+    action="store_true",
+    default=False,
+    help="Deprecated: use the registered task configuration instead.",
+)
 parser.add_argument("--agent_cfg", action="store_true", default=False, help="Load configuration from file.")
 parser.add_argument("--sample", action="store_true", default=False, help="Sample actions instead of using the policy.")
 parser.add_argument("--zero_act_until", type=int, default=0, help="Zero actions until this timestep.")
@@ -45,6 +50,8 @@ args_cli = parser.parse_args()
 # always enable cameras to record video
 if args_cli.video:
     args_cli.enable_cameras = True
+if args_cli.keyboard_control and args_cli.headless:
+    parser.error("--keyboard_control requires a GUI; remove --headless")
 
 # launch omniverse app
 app_launcher = AppLauncher(args_cli)
@@ -55,15 +62,12 @@ simulation_app = app_launcher.app
 import gymnasium as gym
 import torch
 
-import carb.input
-import omni.appwindow
-from carb.input import KeyboardEventType
 from instinct_rl.runners import OnPolicyRunner
 from instinct_rl.utils.utils import get_obs_slice, get_subobs_by_components, get_subobs_size
 
 from isaaclab.envs import DirectMARLEnv, multi_agent_to_single_agent
 from isaaclab.utils.dict import print_dict
-from isaaclab.utils.io import load_pickle, load_yaml
+from isaaclab.utils.io import load_yaml
 from isaaclab_tasks.utils import get_checkpoint_path, parse_env_cfg
 
 # Import extensions to set up environment tasks
@@ -115,7 +119,10 @@ def main():
         resume_path = "model_scratch.pt"
 
     if args_cli.env_cfg:
-        env_cfg = load_pickle(os.path.join(log_dir, "params", "env.pkl"))
+        raise RuntimeError(
+            "--env_cfg is not supported for this player. The current run stores env.yaml, "
+            "which is a serialized training config; omit --env_cfg to use the registered Play config."
+        )
     if args_cli.agent_cfg:
         agent_cfg_dict = load_yaml(os.path.join(log_dir, "params", "agent.yaml"))
     else:
@@ -200,30 +207,37 @@ def main():
             ),
         )
 
-    override_command = torch.zeros(env.num_envs, 3, device=env.device)
-    command_obs_slice = get_obs_slice(env.get_obs_segments(), "velocity_commands")
+    override_command = None
+    command_obs_slice = None
+    if args_cli.keyboard_control:
+        import carb.input
+        import omni.appwindow
+        from carb.input import KeyboardEventType
 
-    def on_keyboard_input(e):
-        if e.input == carb.input.KeyboardInput.W:
-            if e.type == KeyboardEventType.KEY_PRESS or e.type == KeyboardEventType.KEY_REPEAT:
-                override_command[:, 0] += args_cli.keyboard_linvel_step
-        if e.input == carb.input.KeyboardInput.S:
-            if e.type == KeyboardEventType.KEY_PRESS or e.type == KeyboardEventType.KEY_REPEAT:
-                override_command[:, 2] = 0.0
-        if e.input == carb.input.KeyboardInput.F:
-            if e.type == KeyboardEventType.KEY_PRESS or e.type == KeyboardEventType.KEY_REPEAT:
-                override_command[:, 2] = args_cli.keyboard_angvel
-        if e.input == carb.input.KeyboardInput.G:
-            if e.type == KeyboardEventType.KEY_PRESS or e.type == KeyboardEventType.KEY_REPEAT:
-                override_command[:, 2] = -args_cli.keyboard_angvel
-        if e.input == carb.input.KeyboardInput.X:
-            if e.type == KeyboardEventType.KEY_PRESS or e.type == KeyboardEventType.KEY_REPEAT:
-                override_command[:] = 0.0
+        override_command = torch.zeros(env.num_envs, 3, device=env.device)
+        command_obs_slice = get_obs_slice(env.get_obs_segments(), "velocity_commands")
 
-    app_window = omni.appwindow.get_default_app_window()
-    keyboard = app_window.get_keyboard()
-    input = carb.input.acquire_input_interface()
-    input.subscribe_to_keyboard_events(keyboard, on_keyboard_input)
+        def on_keyboard_input(e):
+            if e.input == carb.input.KeyboardInput.W:
+                if e.type == KeyboardEventType.KEY_PRESS or e.type == KeyboardEventType.KEY_REPEAT:
+                    override_command[:, 0] += args_cli.keyboard_linvel_step
+            if e.input == carb.input.KeyboardInput.S:
+                if e.type == KeyboardEventType.KEY_PRESS or e.type == KeyboardEventType.KEY_REPEAT:
+                    override_command[:, 2] = 0.0
+            if e.input == carb.input.KeyboardInput.F:
+                if e.type == KeyboardEventType.KEY_PRESS or e.type == KeyboardEventType.KEY_REPEAT:
+                    override_command[:, 2] = args_cli.keyboard_angvel
+            if e.input == carb.input.KeyboardInput.G:
+                if e.type == KeyboardEventType.KEY_PRESS or e.type == KeyboardEventType.KEY_REPEAT:
+                    override_command[:, 2] = -args_cli.keyboard_angvel
+            if e.input == carb.input.KeyboardInput.X:
+                if e.type == KeyboardEventType.KEY_PRESS or e.type == KeyboardEventType.KEY_REPEAT:
+                    override_command[:] = 0.0
+
+        app_window = omni.appwindow.get_default_app_window()
+        keyboard = app_window.get_keyboard()
+        input = carb.input.acquire_input_interface()
+        input.subscribe_to_keyboard_events(keyboard, on_keyboard_input)
 
     # reset environment
     obs, _ = env.get_observations()

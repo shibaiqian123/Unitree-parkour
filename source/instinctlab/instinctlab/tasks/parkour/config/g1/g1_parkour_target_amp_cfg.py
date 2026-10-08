@@ -21,11 +21,14 @@ from instinctlab.tasks.parkour.config.parkour_env_cfg import ROUGH_TERRAINS_CFG,
 
 __file_dir__ = os.path.dirname(os.path.realpath(__file__))
 G1_CFG = copy.deepcopy(G1_29DOF_TORSOBASE_POPSICLE_CFG)
+G1_CFG.spawn.asset_path = os.path.abspath(
+    f"{__file_dir__}/../../urdf/g1_29dof_torsoBase_mode_15_with_dex1_1.urdf"
+)
 G1_CFG.spawn.merge_fixed_joints = True
 G1_CFG.init_state.pos = (0.0, 0.0, 0.9)
 G1_with_shoe_CFG = copy.deepcopy(G1_CFG)
 G1_with_shoe_CFG.spawn.asset_path = os.path.abspath(
-    f"{__file_dir__}/../../urdf/g1_29dof_torsoBase_popsicle_with_shoe.urdf"
+    f"{__file_dir__}/../../urdf/g1_29dof_torsoBase_mode_15_with_dex1_1_with_shoe.urdf"
 )
 
 
@@ -146,14 +149,10 @@ class G1ParkourRoughEnvCfg_PLAY(G1ParkourRoughEnvCfg):
 
 
 @configclass
-class G1ParkourEnvCfg(G1ParkourRoughEnvCfg, ShoeConfigMixin):
-    def __post_init__(self):
-        super().__post_init__()
-        self.apply_shoe_config()
+class G1ParkourEnvCfg(G1ParkourRoughEnvCfg):
+    pass
 
 
 @configclass
-class G1ParkourEnvCfg_PLAY(G1ParkourRoughEnvCfg_PLAY, ShoeConfigMixin):
-    def __post_init__(self):
-        super().__post_init__()
-        self.apply_shoe_config()
+class G1ParkourEnvCfg_PLAY(G1ParkourRoughEnvCfg_PLAY):
+    pass
